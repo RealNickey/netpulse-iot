@@ -4,7 +4,7 @@ import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { AreaChart, Area, XAxis, YAxis, Legend, Tooltip, Grid } from "@/components/dither-kit";
+import { AreaChart, Area, XAxis, YAxis, Legend, Tooltip, Grid, Sparkline, DitherGradient } from "@/components/dither-kit";
 import {
   Radio,
   Activity,
@@ -47,6 +47,7 @@ interface TimeseriesPoint {
 const chartConfig = {
   packets: { label: "MQTT (pkts/s)", color: "blue" as const },
   bandwidth: { label: "Throughput (KB/s)", color: "purple" as const },
+  latency: { label: "Latency (ms)", color: "orange" as const },
 };
 
 export const NetworkMonitor: React.FC<NetworkMonitorProps> = ({
@@ -79,24 +80,29 @@ export const NetworkMonitor: React.FC<NetworkMonitorProps> = ({
 
     setChartHistory((prev) => {
       const updated = [...prev, newPoint];
-      return updated.length > 18 ? updated.slice(updated.length - 18) : updated;
+      return updated.length > 20 ? updated.slice(updated.length - 20) : updated;
     });
   }, [metrics.packetsPerSec, kbPerSec, metrics.avgLatencyMs]);
+
+  const packetSamples = chartHistory.map((p) => p.packets);
+  const bandwidthSamples = chartHistory.map((p) => p.bandwidth);
+  const latencySamples = chartHistory.map((p) => p.latency);
 
   return (
     <div className="space-y-6">
       {/* Banner */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 p-4 rounded-xl bg-card border border-border/80 shadow-xs">
-        <div>
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 p-4 rounded-xl bg-card border border-border/80 shadow-xs relative overflow-hidden">
+        <DitherGradient from="blue" direction="up" opacity={0.06} bloom="low" />
+        <div className="relative z-10">
           <h2 className="text-lg font-bold text-foreground tracking-tight flex items-center gap-2">
             <Network className="h-5 w-5 text-primary" />
-            Network Traffic & Transport Protocols
+            Network Traffic &amp; Transport Protocols
           </h2>
           <p className="text-sm text-muted-foreground mt-0.5">
             MQTT over TCP on port 1883 and WebSocket streams on port 3001
           </p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 relative z-10">
           <Button
             variant="outline"
             size="sm"
@@ -115,7 +121,7 @@ export const NetworkMonitor: React.FC<NetworkMonitorProps> = ({
           <CardHeader className="p-4 pb-2">
             <CardTitle className="text-sm font-bold text-primary flex items-center gap-2">
               <Layers className="h-4 w-4" />
-              Transport & Protocol Design Notes
+              Transport &amp; Protocol Design Notes
             </CardTitle>
             <CardDescription className="text-xs text-muted-foreground">
               Technical trade-offs and protocol mechanics implemented in this stack
@@ -144,11 +150,11 @@ export const NetworkMonitor: React.FC<NetworkMonitorProps> = ({
         </Card>
       )}
 
-      {/* Metrics Cards */}
+      {/* Metrics Cards with Live Sparklines */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         {/* Packet Rate */}
-        <Card className="bg-card border-border hover:border-border/80 transition-[transform,border-color] duration-150 ease-out hover:-translate-y-0.5">
-          <CardHeader className="p-4 pb-2">
+        <Card className="bg-card border-border hover:border-border/80 transition-[transform,border-color] duration-150 ease-out hover:-translate-y-0.5 overflow-hidden">
+          <CardHeader className="p-4 pb-1">
             <div className="flex items-center justify-between text-muted-foreground text-xs font-mono">
               <span>PACKET RATE</span>
               <Activity className="h-4 w-4 text-primary" />
@@ -158,14 +164,26 @@ export const NetworkMonitor: React.FC<NetworkMonitorProps> = ({
               <span className="text-xs font-normal text-muted-foreground">pkts/s</span>
             </CardTitle>
           </CardHeader>
-          <CardContent className="p-4 pt-0 text-xs text-muted-foreground font-mono">
-            Total packets: <span className="font-semibold text-foreground">{metrics.totalPackets}</span>
+          <CardContent className="p-4 pt-1 space-y-2">
+            <div className="h-7 w-full overflow-hidden rounded-sm bg-secondary/30">
+              <Sparkline
+                data={packetSamples.length > 1 ? packetSamples : [0, metrics.packetsPerSec || 5]}
+                color="blue"
+                variant="gradient"
+                bloom="low"
+                animate={false}
+                className="h-full w-full"
+              />
+            </div>
+            <div className="text-[11px] text-muted-foreground font-mono">
+              Total: <span className="font-semibold text-foreground">{metrics.totalPackets}</span> pkts
+            </div>
           </CardContent>
         </Card>
 
         {/* Bandwidth Throughput */}
-        <Card className="bg-card border-border hover:border-border/80 transition-[transform,border-color] duration-150 ease-out hover:-translate-y-0.5">
-          <CardHeader className="p-4 pb-2">
+        <Card className="bg-card border-border hover:border-border/80 transition-[transform,border-color] duration-150 ease-out hover:-translate-y-0.5 overflow-hidden">
+          <CardHeader className="p-4 pb-1">
             <div className="flex items-center justify-between text-muted-foreground text-xs font-mono">
               <span>BANDWIDTH</span>
               <ArrowDownUp className="h-4 w-4 text-emerald-500" />
@@ -175,14 +193,26 @@ export const NetworkMonitor: React.FC<NetworkMonitorProps> = ({
               <span className="text-xs font-normal text-muted-foreground">KB/s</span>
             </CardTitle>
           </CardHeader>
-          <CardContent className="p-4 pt-0 text-xs text-muted-foreground font-mono">
-            Transferred: <span className="font-semibold text-foreground">{totalMb} MB</span>
+          <CardContent className="p-4 pt-1 space-y-2">
+            <div className="h-7 w-full overflow-hidden rounded-sm bg-secondary/30">
+              <Sparkline
+                data={bandwidthSamples.length > 1 ? bandwidthSamples : [0, kbPerSec || 2]}
+                color="purple"
+                variant="gradient"
+                bloom="low"
+                animate={false}
+                className="h-full w-full"
+              />
+            </div>
+            <div className="text-[11px] text-muted-foreground font-mono">
+              Transferred: <span className="font-semibold text-foreground">{totalMb} MB</span>
+            </div>
           </CardContent>
         </Card>
 
         {/* Latency */}
-        <Card className="bg-card border-border hover:border-border/80 transition-[transform,border-color] duration-150 ease-out hover:-translate-y-0.5">
-          <CardHeader className="p-4 pb-2">
+        <Card className="bg-card border-border hover:border-border/80 transition-[transform,border-color] duration-150 ease-out hover:-translate-y-0.5 overflow-hidden">
+          <CardHeader className="p-4 pb-1">
             <div className="flex items-center justify-between text-muted-foreground text-xs font-mono">
               <span>AVG LATENCY</span>
               <Clock className="h-4 w-4 text-amber-500" />
@@ -192,8 +222,20 @@ export const NetworkMonitor: React.FC<NetworkMonitorProps> = ({
               <span className="text-xs font-normal text-muted-foreground">ms</span>
             </CardTitle>
           </CardHeader>
-          <CardContent className="p-4 pt-0 text-xs text-muted-foreground font-mono">
-            Local loopback: <span className="text-emerald-500 font-semibold">&lt; 3ms</span>
+          <CardContent className="p-4 pt-1 space-y-2">
+            <div className="h-7 w-full overflow-hidden rounded-sm bg-secondary/30">
+              <Sparkline
+                data={latencySamples.length > 1 ? latencySamples : [2, metrics.avgLatencyMs || 2]}
+                color="orange"
+                variant="gradient"
+                bloom="low"
+                animate={false}
+                className="h-full w-full"
+              />
+            </div>
+            <div className="text-[11px] text-muted-foreground font-mono">
+              Loopback: <span className="text-emerald-500 font-semibold">&lt; 3ms</span>
+            </div>
           </CardContent>
         </Card>
 
@@ -209,8 +251,13 @@ export const NetworkMonitor: React.FC<NetworkMonitorProps> = ({
               <span className="text-xs font-normal text-muted-foreground">clients</span>
             </CardTitle>
           </CardHeader>
-          <CardContent className="p-4 pt-0 text-xs text-muted-foreground font-mono">
-            Port: <span className="font-semibold text-foreground">TCP 1883</span>
+          <CardContent className="p-4 pt-0 text-xs text-muted-foreground font-mono space-y-1">
+            <div>
+              Broker: <span className="font-semibold text-foreground">TCP 1883</span>
+            </div>
+            <div>
+              WS Clients: <span className="font-semibold text-foreground">{metrics.connectedClients} active</span>
+            </div>
           </CardContent>
         </Card>
       </div>

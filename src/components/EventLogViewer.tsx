@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useMemo } from "react";
 import { type EventLog, type Alert, getExportCsvUrl } from "@/lib/api";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -12,6 +12,7 @@ import {
   DialogTitle,
   DialogDescription,
 } from "@/components/ui/dialog";
+import { AreaChart, Area, XAxis, YAxis, Legend, Tooltip, Grid, Sparkline, DitherGradient } from "@/components/dither-kit";
 import {
   Download,
   Search,
@@ -19,6 +20,9 @@ import {
   Code,
   AlertTriangle,
   CheckCircle,
+  HardDrive,
+  BarChart3,
+  Layers,
 } from "lucide-react";
 
 interface EventLogViewerProps {
@@ -26,6 +30,11 @@ interface EventLogViewerProps {
   alerts: Alert[];
   onRefresh?: () => void;
 }
+
+const logChartConfig = {
+  events: { label: "Events Ingested", color: "blue" as const },
+  alerts: { label: "Incidents Triggered", color: "orange" as const },
+};
 
 export const EventLogViewer: React.FC<EventLogViewerProps> = ({
   events,
@@ -54,6 +63,62 @@ export const EventLogViewer: React.FC<EventLogViewerProps> = ({
     );
   });
 
+  // Calculate live database metrics
+  const totalPayloadBytes = events.reduce((acc, curr) => acc + (curr.packet_size || 0), 0);
+  const totalKb = (totalPayloadBytes / 1024).toFixed(1);
+  const avgPacketSize = events.length > 0 ? Math.round(totalPayloadBytes / events.length) : 0;
+  const unackCount = alerts.filter((a) => !a.acknowledged).length;
+  const ackRate = alerts.length > 0 ? Math.round(((alerts.length - unackCount) / alerts.length) * 100) : 100;
+
+  // Extract recent packet sizes for Sparkline
+  const recentSizes = useMemo(() => {
+    return events.slice(0, 16).map((e) => e.packet_size || 350).reverse();
+  }, [events]);
+
+  // Aggregate event & alert density over time for Dither-Kit Area Chart
+  const timelineData = useMemo(() => {
+    const buckets: Record<string, { events: number; alerts: number }> = {};
+    const now = Date.now();
+
+    // Group into 12 10-second buckets
+    for (let i = 11; i >= 0; i--) {
+      const bucketTime = new Date(now - i * 10000);
+      const label = `${bucketTime.getMinutes().toString().padStart(2, "0")}:${bucketTime
+        .getSeconds()
+        .toString()
+        .padStart(2, "0")}`;
+      buckets[label] = { events: 0, alerts: 0 };
+    }
+
+    const labels = Object.keys(buckets);
+
+    // Populate events
+    for (const e of events.slice(0, 80)) {
+      const d = new Date(e.timestamp);
+      const label = `${d.getMinutes().toString().padStart(2, "0")}:${Math.floor(d.getSeconds() / 10) * 10}`;
+      const matched = labels.find((l) => l.startsWith(label.slice(0, 4)));
+      if (matched && buckets[matched]) {
+        buckets[matched].events++;
+      }
+    }
+
+    // Populate alerts
+    for (const a of alerts.slice(0, 40)) {
+      const d = new Date(a.timestamp);
+      const label = `${d.getMinutes().toString().padStart(2, "0")}:${Math.floor(d.getSeconds() / 10) * 10}`;
+      const matched = labels.find((l) => l.startsWith(label.slice(0, 4)));
+      if (matched && buckets[matched]) {
+        buckets[matched].alerts++;
+      }
+    }
+
+    return labels.map((time) => ({
+      time,
+      events: Math.max(1, buckets[time].events),
+      alerts: buckets[time].alerts,
+    }));
+  }, [events, alerts]);
+
   const getAlertSeverityBadge = (severity: string) => {
     switch (severity) {
       case "CRITICAL":
@@ -72,19 +137,19 @@ export const EventLogViewer: React.FC<EventLogViewerProps> = ({
   return (
     <div className="space-y-6">
       {/* Banner */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 p-4 rounded-xl bg-card border border-border/80 shadow-xs">
-        <div>
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 p-4 rounded-xl bg-card border border-border/80 shadow-xs relative overflow-hidden">
+        <DitherGradient from="purple" direction="up" opacity={0.06} bloom="low" />
+        <div className="relative z-10">
           <h2 className="text-lg font-bold text-foreground tracking-tight flex items-center gap-2">
             <Database className="h-5 w-5 text-primary" />
             SQLite Event Log &amp; Audit Trail
           </h2>
           <p className="text-sm text-muted-foreground mt-0.5">
-            Events and alerts persisted using bun:sqlite in WAL mode
+            Events and alerts persisted using bun:sqlite in Write-Ahead Logging mode
           </p>
         </div>
 
-        <div className="flex items-center gap-2">
-          {/* Export CSV Button */}
+        <div className="flex items-center gap-2 relative z-10">
           <a href={getExportCsvUrl()} download="iot_event_log.csv">
             <Button
               variant="outline"
@@ -97,6 +162,122 @@ export const EventLogViewer: React.FC<EventLogViewerProps> = ({
           </a>
         </div>
       </div>
+
+      {/* Database Storage & Throughput Stat Cards */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <Card className="bg-card border-border hover:border-border/80 transition-[transform,border-color] duration-150 ease-out hover:-translate-y-0.5">
+          <CardHeader className="p-4 pb-1">
+            <div className="flex items-center justify-between text-muted-foreground text-xs font-mono">
+              <span>DATABASE EVENTS</span>
+              <Database className="h-4 w-4 text-primary" />
+            </div>
+            <CardTitle className="text-2xl font-bold font-mono text-foreground mt-1">
+              {events.length}
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="p-4 pt-1 text-xs text-muted-foreground font-mono">
+            Table: <span className="font-semibold text-foreground">events (WAL)</span>
+          </CardContent>
+        </Card>
+
+        <Card className="bg-card border-border hover:border-border/80 transition-[transform,border-color] duration-150 ease-out hover:-translate-y-0.5">
+          <CardHeader className="p-4 pb-1">
+            <div className="flex items-center justify-between text-muted-foreground text-xs font-mono">
+              <span>PAYLOAD STORAGE</span>
+              <HardDrive className="h-4 w-4 text-indigo-400" />
+            </div>
+            <CardTitle className="text-2xl font-bold font-mono text-foreground mt-1">
+              {totalKb}{" "}
+              <span className="text-xs font-normal text-muted-foreground">KB</span>
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="p-4 pt-1 text-xs text-muted-foreground font-mono">
+            Avg size: <span className="font-semibold text-foreground">{avgPacketSize} B/pkt</span>
+          </CardContent>
+        </Card>
+
+        <Card className="bg-card border-border hover:border-border/80 transition-[transform,border-color] duration-150 ease-out hover:-translate-y-0.5">
+          <CardHeader className="p-4 pb-1">
+            <div className="flex items-center justify-between text-muted-foreground text-xs font-mono">
+              <span>INCIDENT ALERTS</span>
+              <AlertTriangle className="h-4 w-4 text-amber-500" />
+            </div>
+            <CardTitle className="text-2xl font-bold font-mono text-foreground mt-1">
+              {alerts.length}
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="p-4 pt-1 text-xs text-muted-foreground font-mono">
+            Pending: <span className={`font-semibold ${unackCount > 0 ? "text-destructive" : "text-emerald-500"}`}>{unackCount} unacked</span>
+          </CardContent>
+        </Card>
+
+        <Card className="bg-card border-border hover:border-border/80 transition-[transform,border-color] duration-150 ease-out hover:-translate-y-0.5 overflow-hidden">
+          <CardHeader className="p-4 pb-1">
+            <div className="flex items-center justify-between text-muted-foreground text-xs font-mono">
+              <span>PACKET SIZE PROFILE</span>
+              <Layers className="h-4 w-4 text-purple-400" />
+            </div>
+            <CardTitle className="text-2xl font-bold font-mono text-foreground mt-1">
+              {ackRate}%{" "}
+              <span className="text-xs font-normal text-muted-foreground">resolution</span>
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="p-4 pt-1 space-y-1">
+            <div className="h-6 w-full overflow-hidden rounded-sm bg-secondary/30">
+              <Sparkline
+                data={recentSizes.length > 1 ? recentSizes : [350, 360]}
+                color="purple"
+                variant="gradient"
+                bloom="low"
+                animate={false}
+                className="h-full w-full"
+              />
+            </div>
+            <div className="text-[10px] text-muted-foreground font-mono">
+              Packet size variance spark
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Dither-Kit Ingestion Timeline Chart */}
+      <Card className="bg-card border-border overflow-hidden">
+        <CardHeader className="p-4 pb-2">
+          <div className="flex items-center justify-between">
+            <div>
+              <CardTitle className="text-sm font-bold text-foreground flex items-center gap-2 font-mono">
+                <BarChart3 className="h-4 w-4 text-primary" />
+                Ingestion Throughput &amp; Incident Volume (Dither-Kit Area Chart)
+              </CardTitle>
+              <CardDescription className="text-xs text-muted-foreground">
+                Distribution of raw MQTT packet ingestion vs threshold alerts evaluated in SQLite
+              </CardDescription>
+            </div>
+            <Badge variant="outline" className="text-xs font-mono border-primary/30 text-primary">
+              Live DB window
+            </Badge>
+          </div>
+        </CardHeader>
+        <CardContent className="p-4 pt-2">
+          <div className="h-56 w-full">
+            {timelineData.length > 2 ? (
+              <AreaChart data={timelineData} config={logChartConfig} bloom="aura" animate={false}>
+                <Grid />
+                <XAxis dataKey="time" />
+                <YAxis />
+                <Legend isClickable />
+                <Tooltip labelKey="time" />
+                <Area dataKey="events" variant="gradient" strokeVariant="solid" />
+                <Area dataKey="alerts" variant="dotted" strokeVariant="solid" />
+              </AreaChart>
+            ) : (
+              <div className="h-full flex items-center justify-center text-xs text-muted-foreground font-mono">
+                Gathering log timeline...
+              </div>
+            )}
+          </div>
+        </CardContent>
+      </Card>
 
       {/* Sub-tab selection & search filter */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">

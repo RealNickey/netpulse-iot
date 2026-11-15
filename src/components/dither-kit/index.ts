@@ -7,3 +7,4 @@ export { Tooltip } from "./tooltip";
 export { Grid } from "./grid";
 export { ReferenceLine } from "./reference-line";
 export { Sparkline } from "./sparkline";
+export { DitherGradient } from "./gradient";

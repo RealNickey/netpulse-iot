@@ -57,9 +57,44 @@ export function App() {
   });
 
   const [livePackets, setLivePackets] = useState<LivePacket[]>([]);
+  const [nodeHistories, setNodeHistories] = useState<Record<string, { temps: number[]; powers: number[] }>>({});
+  const [facilityHistory, setFacilityHistory] = useState<{ time: string; avgTemp: number; totalKw: number }[]>([]);
   const [isPaused, setIsPaused] = useState(false);
   const isPausedRef = useRef(false);
   isPausedRef.current = isPaused;
+
+  // Track rolling facility averages
+  useEffect(() => {
+    if (nodes.length === 0) return;
+    const timer = setInterval(() => {
+      let tempSum = 0;
+      let tempCount = 0;
+      let powerSum = 0;
+      for (const node of nodes) {
+        try {
+          const parsed = node.last_telemetry ? JSON.parse(node.last_telemetry) : {};
+          if (parsed.data?.temperature !== undefined) {
+            tempSum += parsed.data.temperature;
+            tempCount++;
+          }
+          if (parsed.data?.powerWatts !== undefined) {
+            powerSum += parsed.data.powerWatts;
+          }
+        } catch (e) {}
+      }
+      const avgTemp = tempCount > 0 ? Number((tempSum / tempCount).toFixed(1)) : 24.5;
+      const totalKw = Number((powerSum / 1000).toFixed(2));
+      const now = new Date();
+      const time = `${now.getMinutes().toString().padStart(2, "0")}:${now
+        .getSeconds()
+        .toString()
+        .padStart(2, "0")}`;
+
+      setFacilityHistory((prev) => [...prev, { time, avgTemp, totalKw }].slice(-16));
+    }, 2000);
+
+    return () => clearInterval(timer);
+  }, [nodes]);
 
   // Track acknowledged alerts locally for instant UI responsiveness
   const handleAlertAcked = (id: number) => {
@@ -123,6 +158,23 @@ export function App() {
 
     const unbindTelemetry = wsClient.on("TELEMETRY_PACKET", (data) => {
       const packet = data.packet;
+
+      // Update per-node history for sparklines
+      const temp = packet.payload?.data?.temperature;
+      const power = packet.payload?.data?.powerWatts;
+      const nodeId = packet.payload?.nodeId;
+
+      if (nodeId) {
+        setNodeHistories((prev) => {
+          const current = prev[nodeId] || { temps: [], powers: [] };
+          const nextTemps = temp !== undefined ? [...current.temps, temp].slice(-14) : current.temps;
+          const nextPowers = power !== undefined ? [...current.powers, power].slice(-14) : current.powers;
+          return {
+            ...prev,
+            [nodeId]: { temps: nextTemps, powers: nextPowers },
+          };
+        });
+      }
 
       // Update Node in state
       setNodes((prev) => {
@@ -290,6 +342,8 @@ export function App() {
             <TabsContent value="overview" className="mt-0 focus-visible:outline-none">
               <DataCenterOverview
                 nodes={nodes}
+                nodeHistories={nodeHistories}
+                facilityHistory={facilityHistory}
                 onTriggerAnomaly={loadAllData}
               />
             </TabsContent>

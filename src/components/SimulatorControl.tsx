@@ -4,6 +4,7 @@ import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/com
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Slider } from "@/components/ui/slider";
+import { AreaChart, Area, XAxis, YAxis, Legend, Tooltip, Grid, DitherGradient } from "@/components/dither-kit";
 import {
   Flame,
   Zap,
@@ -15,6 +16,7 @@ import {
   Radio,
   Clock,
   Sparkles,
+  BarChart2,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -22,6 +24,11 @@ interface SimulatorControlProps {
   simStatus: SimStatus;
   onConfigChange: () => void;
 }
+
+const simChartConfig = {
+  temp: { label: "Node Temp (°C)", color: "orange" as const },
+  powerHw: { label: "Power Draw (x100W)", color: "purple" as const },
+};
 
 export const SimulatorControl: React.FC<SimulatorControlProps> = ({
   simStatus,
@@ -57,11 +64,23 @@ export const SimulatorControl: React.FC<SimulatorControlProps> = ({
     onConfigChange();
   };
 
+  // Node profile data for live Dither-Kit chart
+  const nodeProfileData = (simStatus.nodes || []).map((n) => ({
+    node: n.id,
+    temp: n.temp,
+    powerHw: Number((n.power / 100).toFixed(1)),
+  }));
+
+  const isFaultActive = simStatus.activeAnomaly !== "NONE";
+
   return (
     <div className="space-y-6">
       {/* Banner */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 p-4 rounded-xl bg-card border border-border/80 shadow-xs">
-        <div>
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 p-4 rounded-xl bg-card border border-border/80 shadow-xs relative overflow-hidden">
+        {isFaultActive && (
+          <DitherGradient from="red" direction="up" opacity={0.10} bloom="low" />
+        )}
+        <div className="relative z-10">
           <h2 className="text-lg font-bold text-foreground tracking-tight flex items-center gap-2">
             <Sliders className="h-5 w-5 text-primary" />
             Hardware &amp; Network Fault Injection
@@ -71,8 +90,8 @@ export const SimulatorControl: React.FC<SimulatorControlProps> = ({
           </p>
         </div>
 
-        <div className="flex items-center gap-2">
-          {simStatus.activeAnomaly !== "NONE" ? (
+        <div className="flex items-center gap-2 relative z-10">
+          {isFaultActive ? (
             <Badge variant="destructive" className="font-mono text-xs animate-pulse">
               ACTIVE FAULT: {simStatus.activeAnomaly}
             </Badge>
@@ -83,6 +102,41 @@ export const SimulatorControl: React.FC<SimulatorControlProps> = ({
           )}
         </div>
       </div>
+
+      {/* Live Node Deviation Profile (Dither-Kit Area Chart) */}
+      {nodeProfileData.length > 2 && (
+        <Card className="bg-card border-border overflow-hidden">
+          <CardHeader className="p-4 pb-2">
+            <div className="flex items-center justify-between">
+              <div>
+                <CardTitle className="text-sm font-bold text-foreground flex items-center gap-2 font-mono">
+                  <BarChart2 className="h-4 w-4 text-primary" />
+                  Live Node Load &amp; Thermal Profile (Dither-Kit Area Chart)
+                </CardTitle>
+                <CardDescription className="text-xs text-muted-foreground">
+                  Per-node temperature and power profiles across all 7 monitored entities
+                </CardDescription>
+              </div>
+              <Badge variant="outline" className="text-xs font-mono border-primary/30 text-primary">
+                Live simulation state
+              </Badge>
+            </div>
+          </CardHeader>
+          <CardContent className="p-4 pt-2">
+            <div className="h-56 w-full">
+              <AreaChart data={nodeProfileData} config={simChartConfig} bloom="aura" animate={false}>
+                <Grid />
+                <XAxis dataKey="node" />
+                <YAxis />
+                <Legend isClickable />
+                <Tooltip labelKey="node" />
+                <Area dataKey="temp" variant="gradient" strokeVariant="solid" />
+                <Area dataKey="powerHw" variant="dotted" strokeVariant="solid" />
+              </AreaChart>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Sliders & Protocol Tuning */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -183,8 +237,11 @@ export const SimulatorControl: React.FC<SimulatorControlProps> = ({
         <CardContent className="p-4 pt-2">
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
             {/* 1. HVAC Failure */}
-            <div className="p-3 rounded-lg border border-border/80 bg-secondary/30 hover:border-border transition-[border-color,background-color] duration-150 flex flex-col justify-between gap-3">
-              <div>
+            <div className="p-3 rounded-lg border border-border/80 bg-secondary/30 hover:border-border transition-[border-color,background-color] duration-150 flex flex-col justify-between gap-3 relative overflow-hidden">
+              {simStatus.activeAnomaly === "HVAC_FAILURE" && (
+                <DitherGradient from="red" direction="up" opacity={0.12} bloom="low" />
+              )}
+              <div className="relative z-10">
                 <div className="flex items-center gap-2 mb-1">
                   <Flame className="h-4 w-4 text-destructive" />
                   <span className="font-bold text-xs text-foreground">
@@ -198,7 +255,7 @@ export const SimulatorControl: React.FC<SimulatorControlProps> = ({
               <Button
                 size="sm"
                 variant="destructive"
-                className="w-full text-xs font-mono transition-transform duration-140 active:scale-[0.97]"
+                className="w-full text-xs font-mono transition-transform duration-140 active:scale-[0.97] relative z-10"
                 onClick={() => handleTriggerAnomaly("HVAC_FAILURE", "HVAC Chiller Failure")}
               >
                 Inject thermal runaway
@@ -206,8 +263,11 @@ export const SimulatorControl: React.FC<SimulatorControlProps> = ({
             </div>
 
             {/* 2. PDU Surge */}
-            <div className="p-3 rounded-lg border border-border/80 bg-secondary/30 hover:border-border transition-[border-color,background-color] duration-150 flex flex-col justify-between gap-3">
-              <div>
+            <div className="p-3 rounded-lg border border-border/80 bg-secondary/30 hover:border-border transition-[border-color,background-color] duration-150 flex flex-col justify-between gap-3 relative overflow-hidden">
+              {simStatus.activeAnomaly === "PDU_SURGE" && (
+                <DitherGradient from="orange" direction="up" opacity={0.12} bloom="low" />
+              )}
+              <div className="relative z-10">
                 <div className="flex items-center gap-2 mb-1">
                   <Zap className="h-4 w-4 text-amber-500" />
                   <span className="font-bold text-xs text-foreground">
@@ -221,7 +281,7 @@ export const SimulatorControl: React.FC<SimulatorControlProps> = ({
               <Button
                 size="sm"
                 variant="outline"
-                className="w-full text-xs font-mono border-amber-500/40 text-amber-500 hover:bg-amber-500/10 transition-transform duration-140 active:scale-[0.97]"
+                className="w-full text-xs font-mono border-amber-500/40 text-amber-500 hover:bg-amber-500/10 transition-transform duration-140 active:scale-[0.97] relative z-10"
                 onClick={() => handleTriggerAnomaly("PDU_SURGE", "PDU Power Surge")}
               >
                 Inject power surge
@@ -229,8 +289,11 @@ export const SimulatorControl: React.FC<SimulatorControlProps> = ({
             </div>
 
             {/* 3. Physical Security Breach */}
-            <div className="p-3 rounded-lg border border-border/80 bg-secondary/30 hover:border-border transition-[border-color,background-color] duration-150 flex flex-col justify-between gap-3">
-              <div>
+            <div className="p-3 rounded-lg border border-border/80 bg-secondary/30 hover:border-border transition-[border-color,background-color] duration-150 flex flex-col justify-between gap-3 relative overflow-hidden">
+              {simStatus.activeAnomaly === "SECURITY_BREACH" && (
+                <DitherGradient from="red" direction="up" opacity={0.12} bloom="low" />
+              )}
+              <div className="relative z-10">
                 <div className="flex items-center gap-2 mb-1">
                   <ShieldAlert className="h-4 w-4 text-destructive" />
                   <span className="font-bold text-xs text-foreground">
@@ -244,7 +307,7 @@ export const SimulatorControl: React.FC<SimulatorControlProps> = ({
               <Button
                 size="sm"
                 variant="destructive"
-                className="w-full text-xs font-mono transition-transform duration-140 active:scale-[0.97]"
+                className="w-full text-xs font-mono transition-transform duration-140 active:scale-[0.97] relative z-10"
                 onClick={() =>
                   handleTriggerAnomaly("SECURITY_BREACH", "Vault Intrusion")
                 }
@@ -254,8 +317,11 @@ export const SimulatorControl: React.FC<SimulatorControlProps> = ({
             </div>
 
             {/* 4. Seismic / Vibration */}
-            <div className="p-3 rounded-lg border border-border/80 bg-secondary/30 hover:border-border transition-[border-color,background-color] duration-150 flex flex-col justify-between gap-3">
-              <div>
+            <div className="p-3 rounded-lg border border-border/80 bg-secondary/30 hover:border-border transition-[border-color,background-color] duration-150 flex flex-col justify-between gap-3 relative overflow-hidden">
+              {simStatus.activeAnomaly === "SEISMIC_SHAKE" && (
+                <DitherGradient from="purple" direction="up" opacity={0.12} bloom="low" />
+              )}
+              <div className="relative z-10">
                 <div className="flex items-center gap-2 mb-1">
                   <Activity className="h-4 w-4 text-purple-400" />
                   <span className="font-bold text-xs text-foreground">
@@ -269,7 +335,7 @@ export const SimulatorControl: React.FC<SimulatorControlProps> = ({
               <Button
                 size="sm"
                 variant="outline"
-                className="w-full text-xs font-mono border-purple-400/40 text-purple-400 hover:bg-purple-400/10 transition-transform duration-140 active:scale-[0.97]"
+                className="w-full text-xs font-mono border-purple-400/40 text-purple-400 hover:bg-purple-400/10 transition-transform duration-140 active:scale-[0.97] relative z-10"
                 onClick={() =>
                   handleTriggerAnomaly("SEISMIC_SHAKE", "Chassis Vibration")
                 }
@@ -279,8 +345,11 @@ export const SimulatorControl: React.FC<SimulatorControlProps> = ({
             </div>
 
             {/* 5. Network Congestion */}
-            <div className="p-3 rounded-lg border border-border/80 bg-secondary/30 hover:border-border transition-[border-color,background-color] duration-150 flex flex-col justify-between gap-3">
-              <div>
+            <div className="p-3 rounded-lg border border-border/80 bg-secondary/30 hover:border-border transition-[border-color,background-color] duration-150 flex flex-col justify-between gap-3 relative overflow-hidden">
+              {simStatus.activeAnomaly === "NETWORK_CONGESTION" && (
+                <DitherGradient from="blue" direction="up" opacity={0.12} bloom="low" />
+              )}
+              <div className="relative z-10">
                 <div className="flex items-center gap-2 mb-1">
                   <Network className="h-4 w-4 text-cyan-400" />
                   <span className="font-bold text-xs text-foreground">
@@ -294,7 +363,7 @@ export const SimulatorControl: React.FC<SimulatorControlProps> = ({
               <Button
                 size="sm"
                 variant="outline"
-                className="w-full text-xs font-mono border-cyan-400/40 text-cyan-400 hover:bg-cyan-400/10 transition-transform duration-140 active:scale-[0.97]"
+                className="w-full text-xs font-mono border-cyan-400/40 text-cyan-400 hover:bg-cyan-400/10 transition-transform duration-140 active:scale-[0.97] relative z-10"
                 onClick={() =>
                   handleTriggerAnomaly("NETWORK_CONGESTION", "Switch Packet Loss")
                 }
