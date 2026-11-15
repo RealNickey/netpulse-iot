@@ -57,38 +57,42 @@ export const EventLogViewer: React.FC<EventLogViewerProps> = ({
   const getAlertSeverityBadge = (severity: string) => {
     switch (severity) {
       case "CRITICAL":
-        return <Badge variant="destructive">CRITICAL</Badge>;
+        return <Badge variant="destructive" className="font-mono text-[10px]">CRITICAL</Badge>;
       case "WARNING":
         return (
-          <Badge variant="secondary" className="bg-amber-500/20 text-amber-500 border-amber-500/30">
+          <Badge variant="secondary" className="font-mono text-[10px] bg-amber-500/20 text-amber-500 border-amber-500/30">
             WARNING
           </Badge>
         );
       default:
-        return <Badge variant="outline">INFO</Badge>;
+        return <Badge variant="outline" className="font-mono text-[10px]">INFO</Badge>;
     }
   };
 
   return (
     <div className="space-y-6">
       {/* Banner */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 p-4 rounded-xl bg-card border border-border/80">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 p-4 rounded-xl bg-card border border-border/80 shadow-xs">
         <div>
           <h2 className="text-lg font-bold text-foreground tracking-tight flex items-center gap-2">
             <Database className="h-5 w-5 text-primary" />
-            Persistent SQLite Event Log & Incident Audit Trail
+            SQLite Event Log &amp; Audit Trail
           </h2>
           <p className="text-sm text-muted-foreground mt-0.5">
-            High-speed write-ahead logging (WAL) storage via native bun:sqlite
+            Events and alerts persisted using bun:sqlite in WAL mode
           </p>
         </div>
 
         <div className="flex items-center gap-2">
           {/* Export CSV Button */}
           <a href={getExportCsvUrl()} download="iot_event_log.csv">
-            <Button variant="outline" size="sm" className="flex items-center gap-1.5 text-xs font-mono">
+            <Button
+              variant="outline"
+              size="sm"
+              className="flex items-center gap-1.5 text-xs font-mono transition-transform duration-140 active:scale-[0.97]"
+            >
               <Download className="h-3.5 w-3.5 text-primary" />
-              Export CSV Report
+              Export CSV
             </Button>
           </a>
         </div>
@@ -101,27 +105,27 @@ export const EventLogViewer: React.FC<EventLogViewerProps> = ({
             variant={activeSubTab === "EVENTS" ? "default" : "outline"}
             size="sm"
             onClick={() => setActiveSubTab("EVENTS")}
-            className="text-xs font-mono"
+            className="text-xs font-mono transition-transform duration-140 active:scale-[0.97]"
           >
-            Raw Ingestion Events ({events.length})
+            Raw Ingestion ({events.length})
           </Button>
           <Button
             variant={activeSubTab === "ALERTS" ? "default" : "outline"}
             size="sm"
             onClick={() => setActiveSubTab("ALERTS")}
-            className="text-xs font-mono flex items-center gap-1"
+            className="text-xs font-mono flex items-center gap-1 transition-transform duration-140 active:scale-[0.97]"
           >
-            Triggered Incident Alerts ({alerts.length})
+            Incident Alerts ({alerts.length})
           </Button>
         </div>
 
         <div className="relative w-full sm:w-72">
           <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
           <Input
-            placeholder="Search by Node ID, Topic, or Keyword..."
+            placeholder="Filter by node, topic, or keyword..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="pl-8 text-xs font-mono"
+            className="pl-8 text-xs font-mono transition-colors duration-150"
           />
         </div>
       </div>
@@ -130,11 +134,11 @@ export const EventLogViewer: React.FC<EventLogViewerProps> = ({
       {activeSubTab === "EVENTS" ? (
         <Card className="bg-card border-border">
           <CardHeader className="p-4 pb-2">
-            <CardTitle className="text-sm font-bold text-foreground">
-              Ingestion Log Records (SQLite)
+            <CardTitle className="text-sm font-bold text-foreground font-mono">
+              Recorded Telemetry Records
             </CardTitle>
             <CardDescription className="text-xs text-muted-foreground">
-              Showing recent telemetries recorded from MQTT topics
+              Recent telemetries logged from MQTT topics
             </CardDescription>
           </CardHeader>
           <CardContent className="p-4 pt-2">
@@ -144,7 +148,7 @@ export const EventLogViewer: React.FC<EventLogViewerProps> = ({
                   <TableHeader className="bg-secondary/60 sticky top-0 z-10 text-xs font-mono">
                     <TableRow>
                       <TableHead className="w-16">ID</TableHead>
-                      <TableHead className="w-24">Timestamp</TableHead>
+                      <TableHead className="w-24">Time</TableHead>
                       <TableHead className="w-28">Node ID</TableHead>
                       <TableHead>MQTT Topic</TableHead>
                       <TableHead className="w-16">QoS</TableHead>
@@ -162,7 +166,7 @@ export const EventLogViewer: React.FC<EventLogViewerProps> = ({
                       </TableRow>
                     ) : (
                       filteredEvents.map((e) => (
-                        <TableRow key={e.id} className="hover:bg-muted/40">
+                        <TableRow key={e.id} className="hover:bg-muted/50 transition-colors duration-100">
                           <TableCell className="text-muted-foreground font-semibold">
                             #{e.id}
                           </TableCell>
@@ -183,8 +187,8 @@ export const EventLogViewer: React.FC<EventLogViewerProps> = ({
                           <TableCell className="text-right">
                             <Button
                               variant="ghost"
-                              size="sm"
-                              className="h-6 px-2 text-[11px] text-primary"
+                              size="xs"
+                              className="h-6 px-2 text-[11px] font-mono text-primary transition-transform duration-140 active:scale-95"
                               onClick={() => setSelectedEvent(e)}
                             >
                               <Code className="h-3 w-3 mr-1" />
@@ -204,11 +208,11 @@ export const EventLogViewer: React.FC<EventLogViewerProps> = ({
         /* Alerts Table */
         <Card className="bg-card border-border">
           <CardHeader className="p-4 pb-2">
-            <CardTitle className="text-sm font-bold text-foreground">
-              Incident Alert History & Notification Triggers
+            <CardTitle className="text-sm font-bold text-foreground font-mono">
+              Evaluated Incident Records
             </CardTitle>
             <CardDescription className="text-xs text-muted-foreground">
-              Evaluated against critical environmental & network thresholds
+              Incidents generated when telemetry breached safe thresholds
             </CardDescription>
           </CardHeader>
           <CardContent className="p-4 pt-2">
@@ -218,11 +222,11 @@ export const EventLogViewer: React.FC<EventLogViewerProps> = ({
                   <TableHeader className="bg-secondary/60 sticky top-0 z-10 text-xs font-mono">
                     <TableRow>
                       <TableHead className="w-16">ID</TableHead>
-                      <TableHead className="w-24">Timestamp</TableHead>
-                      <TableHead className="w-28">Node ID</TableHead>
+                      <TableHead className="w-24">Time</TableHead>
+                      <TableHead className="w-28">Node</TableHead>
                       <TableHead className="w-24">Severity</TableHead>
                       <TableHead className="w-24">Type</TableHead>
-                      <TableHead>Notification Message</TableHead>
+                      <TableHead>Message</TableHead>
                       <TableHead className="w-28">Status</TableHead>
                     </TableRow>
                   </TableHeader>
@@ -230,12 +234,12 @@ export const EventLogViewer: React.FC<EventLogViewerProps> = ({
                     {filteredAlerts.length === 0 ? (
                       <TableRow>
                         <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
-                          No incident alerts logged yet. System running smoothly!
+                          No alerts recorded. System operating within normal thresholds.
                         </TableCell>
                       </TableRow>
                     ) : (
                       filteredAlerts.map((a) => (
-                        <TableRow key={a.id} className="hover:bg-muted/40">
+                        <TableRow key={a.id} className="hover:bg-muted/50 transition-colors duration-100">
                           <TableCell className="text-muted-foreground font-semibold">
                             #{a.id}
                           </TableCell>
@@ -270,16 +274,16 @@ export const EventLogViewer: React.FC<EventLogViewerProps> = ({
         </Card>
       )}
 
-      {/* Raw Payload Inspection Modal */}
+      {/* Raw Payload Modal */}
       <Dialog open={selectedEvent !== null} onOpenChange={(open) => !open && setSelectedEvent(null)}>
         <DialogContent className="max-w-2xl bg-card border-border">
           <DialogHeader>
-            <DialogTitle className="text-base font-bold text-foreground font-mono flex items-center gap-2">
+            <DialogTitle className="text-sm font-bold text-foreground font-mono flex items-center gap-2">
               <Code className="h-4 w-4 text-primary" />
-              Event Record #{selectedEvent?.id} — {selectedEvent?.node_id}
+              Event #{selectedEvent?.id} — {selectedEvent?.node_id}
             </DialogTitle>
             <DialogDescription className="text-xs text-muted-foreground">
-              Topic: {selectedEvent?.topic} | Recorded at {selectedEvent?.timestamp}
+              Topic: {selectedEvent?.topic} • {selectedEvent?.timestamp}
             </DialogDescription>
           </DialogHeader>
 
@@ -287,15 +291,15 @@ export const EventLogViewer: React.FC<EventLogViewerProps> = ({
             <div className="space-y-3">
               <div className="grid grid-cols-3 gap-2 text-xs p-2.5 rounded-lg bg-secondary/50 border border-border font-mono">
                 <div>
-                  <span className="text-muted-foreground">Transport:</span>{" "}
+                  <span className="text-muted-foreground">Protocol:</span>{" "}
                   <span className="text-foreground">MQTT / TCP</span>
                 </div>
                 <div>
-                  <span className="text-muted-foreground">QoS Level:</span>{" "}
+                  <span className="text-muted-foreground">QoS:</span>{" "}
                   <span className="text-foreground">QoS {selectedEvent.qos}</span>
                 </div>
                 <div>
-                  <span className="text-muted-foreground">Packet Size:</span>{" "}
+                  <span className="text-muted-foreground">Size:</span>{" "}
                   <span className="text-foreground">{selectedEvent.packet_size} bytes</span>
                 </div>
               </div>

@@ -253,28 +253,28 @@ export function App() {
               <TabsList className="bg-secondary/80 p-1 border border-border">
                 <TabsTrigger
                   value="overview"
-                  className="flex items-center gap-2 text-xs font-mono font-medium data-[state=active]:bg-card data-[state=active]:text-foreground"
+                  className="flex items-center gap-2 text-xs font-mono font-medium data-[state=active]:bg-card data-[state=active]:text-foreground transition-[background-color,color,transform] duration-140 ease-out cursor-pointer active:scale-[0.97]"
                 >
                   <Server className="h-3.5 w-3.5 text-primary" />
                   <span>Infrastructure</span>
                 </TabsTrigger>
                 <TabsTrigger
                   value="network"
-                  className="flex items-center gap-2 text-xs font-mono font-medium data-[state=active]:bg-card data-[state=active]:text-foreground"
+                  className="flex items-center gap-2 text-xs font-mono font-medium data-[state=active]:bg-card data-[state=active]:text-foreground transition-[background-color,color,transform] duration-140 ease-out cursor-pointer active:scale-[0.97]"
                 >
                   <Network className="h-3.5 w-3.5 text-emerald-500" />
                   <span>Network & Protocols</span>
                 </TabsTrigger>
                 <TabsTrigger
                   value="logs"
-                  className="flex items-center gap-2 text-xs font-mono font-medium data-[state=active]:bg-card data-[state=active]:text-foreground"
+                  className="flex items-center gap-2 text-xs font-mono font-medium data-[state=active]:bg-card data-[state=active]:text-foreground transition-[background-color,color,transform] duration-140 ease-out cursor-pointer active:scale-[0.97]"
                 >
                   <Database className="h-3.5 w-3.5 text-amber-500" />
                   <span>Event Log & Audit</span>
                 </TabsTrigger>
                 <TabsTrigger
                   value="chaos"
-                  className="flex items-center gap-2 text-xs font-mono font-medium data-[state=active]:bg-card data-[state=active]:text-foreground"
+                  className="flex items-center gap-2 text-xs font-mono font-medium data-[state=active]:bg-card data-[state=active]:text-foreground transition-[background-color,color,transform] duration-140 ease-out cursor-pointer active:scale-[0.97]"
                 >
                   <Sliders className="h-3.5 w-3.5 text-purple-400" />
                   <span>Chaos Simulator</span>
