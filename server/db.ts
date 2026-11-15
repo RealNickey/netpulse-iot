@@ -77,6 +77,14 @@ const ackAlertStmt = db.prepare(`
   UPDATE alerts SET acknowledged = 1, acknowledged_at = CURRENT_TIMESTAMP WHERE id = $id
 `);
 
+const checkActiveAlertStmt = db.prepare(`
+  SELECT id FROM alerts WHERE node_id = $node_id AND type = $type AND acknowledged = 0 LIMIT 1
+`);
+
+const ackAllAlertsStmt = db.prepare(`
+  UPDATE alerts SET acknowledged = 1, acknowledged_at = CURRENT_TIMESTAMP WHERE acknowledged = 0
+`);
+
 export interface EventRecord {
   id: number;
   timestamp: string;
@@ -177,6 +185,15 @@ export const dbService = {
 
   acknowledgeAlert(id: number) {
     ackAlertStmt.run({ $id: id });
+  },
+
+  hasActiveAlert(node_id: string, type: string): boolean {
+    const res = checkActiveAlertStmt.get({ $node_id: node_id, $type: type });
+    return !!res;
+  },
+
+  acknowledgeAllAlerts() {
+    ackAllAlertsStmt.run();
   },
 
   getRecentEvents(limit = 100, severity?: string): EventRecord[] {

@@ -110,6 +110,11 @@ export async function acknowledgeAlert(id: number) {
   return res.json();
 }
 
+export async function acknowledgeAllAlerts() {
+  const res = await fetch(`${API_BASE}/api/alerts/ack-all`, { method: "POST" });
+  return res.json();
+}
+
 export async function triggerAnomaly(anomaly: string) {
   const res = await fetch(`${API_BASE}/api/simulation/anomaly`, {
     method: "POST",

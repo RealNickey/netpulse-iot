@@ -88,15 +88,31 @@ const server = Bun.serve({
       return new Response("Invalid ID", { status: 400, headers });
     }
 
+    // POST /api/alerts/ack-all
+    if (url.pathname === "/api/alerts/ack-all" && req.method === "POST") {
+      dbService.acknowledgeAllAlerts();
+      broadcastToClients({
+        type: "ALL_ALERTS_ACKNOWLEDGED",
+      });
+      return Response.json({ success: true }, { headers });
+    }
+
     // POST /api/simulation/anomaly
     if (url.pathname === "/api/simulation/anomaly" && req.method === "POST") {
       return req.json().then((body: { anomaly: AnomalyType }) => {
-        simulator.setAnomaly(body.anomaly || "NONE");
+        const anomaly = body.anomaly || "NONE";
+        simulator.setAnomaly(anomaly);
+        if (anomaly === "NONE") {
+          dbService.acknowledgeAllAlerts();
+          broadcastToClients({
+            type: "ALL_ALERTS_ACKNOWLEDGED",
+          });
+        }
         broadcastToClients({
           type: "SIMULATION_UPDATE",
           simStatus: simulator.getStatus(),
         });
-        return Response.json({ success: true, activeAnomaly: body.anomaly }, { headers });
+        return Response.json({ success: true, activeAnomaly: anomaly }, { headers });
       });
     }
 

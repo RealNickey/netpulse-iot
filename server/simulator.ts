@@ -282,13 +282,15 @@ class IotNetworkSimulator {
 
         case "NONE":
         default:
-          // Cool down slowly toward baseline
-          node.currentTemp += (node.baseTemp - node.currentTemp) * 0.15 + jitter;
-          node.currentPower += (node.basePower - node.currentPower) * 0.2 + powerJitter;
+          // Snap directly to baseline with natural jitter
+          node.currentTemp = node.baseTemp + jitter;
+          node.currentPower = node.basePower + powerJitter;
           node.currentHumidity = node.baseHumidity + jitter * 2;
           node.doorStatus = "CLOSED";
-          node.vibration = Math.max(0.01, node.vibration * 0.5);
-          node.packetLossPct = Math.max(0.01, node.packetLossPct * 0.5);
+          node.vibration = 0.05 + Math.random() * 0.02;
+          node.packetLossPct = 0.01;
+          node.cpuLoad = node.id === "rack-03" ? 68 + jitter * 5 : node.id === "rack-04" ? 45 + jitter * 4 : 28 + jitter * 4;
+          node.fanRpm = node.id === "rack-03" ? 5200 : node.id === "rack-04" ? 4000 : 2800;
           break;
       }
     }
@@ -297,6 +299,19 @@ class IotNetworkSimulator {
   public setAnomaly(anomaly: AnomalyType) {
     this.activeAnomaly = anomaly;
     console.log(`[IoT Simulator] Anomaly set to: ${anomaly}`);
+    if (anomaly === "NONE") {
+      // Instantly restore all nodes to their clean baseline states
+      for (const node of this.nodes) {
+        node.currentTemp = node.baseTemp;
+        node.currentPower = node.basePower;
+        node.currentHumidity = node.baseHumidity;
+        node.doorStatus = "CLOSED";
+        node.vibration = 0.05;
+        node.packetLossPct = 0.01;
+        node.cpuLoad = node.id === "rack-03" ? 68 : node.id === "rack-04" ? 45 : 28;
+        node.fanRpm = node.id === "rack-03" ? 5200 : node.id === "rack-04" ? 4000 : 2800;
+      }
+    }
     // Force immediate broadcast
     this.publishAllNodes();
   }

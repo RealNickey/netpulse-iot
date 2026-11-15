@@ -153,7 +153,7 @@ export const NetworkMonitor: React.FC<NetworkMonitorProps> = ({
       {/* Metrics Cards with Live Sparklines */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         {/* Packet Rate */}
-        <Card className="bg-card border-border hover:border-border/80 transition-[transform,border-color] duration-150 ease-out hover:-translate-y-0.5 overflow-hidden">
+        <Card className="bg-card border-border hover:border-border/80 transition-[border-color,box-shadow] duration-150 ease-out hover:shadow-xs overflow-hidden">
           <CardHeader className="p-4 pb-1">
             <div className="flex items-center justify-between text-muted-foreground text-xs font-mono">
               <span>PACKET RATE</span>
@@ -182,7 +182,7 @@ export const NetworkMonitor: React.FC<NetworkMonitorProps> = ({
         </Card>
 
         {/* Bandwidth Throughput */}
-        <Card className="bg-card border-border hover:border-border/80 transition-[transform,border-color] duration-150 ease-out hover:-translate-y-0.5 overflow-hidden">
+        <Card className="bg-card border-border hover:border-border/80 transition-[border-color,box-shadow] duration-150 ease-out hover:shadow-xs overflow-hidden">
           <CardHeader className="p-4 pb-1">
             <div className="flex items-center justify-between text-muted-foreground text-xs font-mono">
               <span>BANDWIDTH</span>
@@ -211,7 +211,7 @@ export const NetworkMonitor: React.FC<NetworkMonitorProps> = ({
         </Card>
 
         {/* Latency */}
-        <Card className="bg-card border-border hover:border-border/80 transition-[transform,border-color] duration-150 ease-out hover:-translate-y-0.5 overflow-hidden">
+        <Card className="bg-card border-border hover:border-border/80 transition-[border-color,box-shadow] duration-150 ease-out hover:shadow-xs overflow-hidden">
           <CardHeader className="p-4 pb-1">
             <div className="flex items-center justify-between text-muted-foreground text-xs font-mono">
               <span>AVG LATENCY</span>
@@ -240,7 +240,7 @@ export const NetworkMonitor: React.FC<NetworkMonitorProps> = ({
         </Card>
 
         {/* Connected Clients */}
-        <Card className="bg-card border-border hover:border-border/80 transition-[transform,border-color] duration-150 ease-out hover:-translate-y-0.5">
+        <Card className="bg-card border-border hover:border-border/80 transition-[border-color,box-shadow] duration-150 ease-out hover:shadow-xs">
           <CardHeader className="p-4 pb-2">
             <div className="flex items-center justify-between text-muted-foreground text-xs font-mono">
               <span>TCP CONNECTIONS</span>

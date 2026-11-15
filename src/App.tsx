@@ -18,6 +18,7 @@ import { DataCenterOverview } from "@/components/DataCenterOverview";
 import { NetworkMonitor, type LivePacket } from "@/components/NetworkMonitor";
 import { EventLogViewer } from "@/components/EventLogViewer";
 import { SimulatorControl } from "@/components/SimulatorControl";
+import { CursorDitherBackground } from "@/components/CursorDitherBackground";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { Toaster } from "@/components/ui/sonner";
@@ -156,6 +157,10 @@ export function App() {
       handleAlertAcked(data.alertId);
     });
 
+    const unbindAllAck = wsClient.on("ALL_ALERTS_ACKNOWLEDGED", () => {
+      setAlerts((prev) => prev.map((a) => ({ ...a, acknowledged: 1 })));
+    });
+
     const unbindTelemetry = wsClient.on("TELEMETRY_PACKET", (data) => {
       const packet = data.packet;
 
@@ -271,6 +276,7 @@ export function App() {
       unbindMetrics();
       unbindSim();
       unbindAck();
+      unbindAllAck();
       unbindTelemetry();
       unbindClear();
     };
@@ -278,7 +284,10 @@ export function App() {
 
   return (
     <TooltipProvider>
-      <div className="min-h-screen bg-background text-foreground flex flex-col font-sans selection:bg-primary/20">
+      <div className="min-h-screen bg-background text-foreground flex flex-col font-sans selection:bg-primary/20 relative">
+        {/* Mouse cursor follow dither glow */}
+        <CursorDitherBackground />
+
         {/* Navigation & Status Header */}
         <Header
           wsConnected={wsConnected}
@@ -295,6 +304,7 @@ export function App() {
         <ActiveAlertsBanner
           alerts={alerts}
           onAlertAcknowledged={handleAlertAcked}
+          onAllAcknowledged={() => setAlerts((prev) => prev.map((a) => ({ ...a, acknowledged: 1 })))}
         />
 
         {/* Main Dashboard Workspace */}
@@ -377,11 +387,6 @@ export function App() {
             </TabsContent>
           </Tabs>
         </main>
-
-        {/* Footer */}
-        <footer className="border-t border-border/60 py-4 px-6 text-center text-xs text-muted-foreground font-mono">
-          NetPulse IoT Platform • Computer Networks Course Project • Built with Bun, React, SQLite & MQTT
-        </footer>
 
         {/* Toast Notification Container */}
         <Toaster richColors position="bottom-right" closeButton />

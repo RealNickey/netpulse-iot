@@ -1,18 +1,20 @@
 import React from "react";
-import { type Alert, acknowledgeAlert } from "@/lib/api";
+import { type Alert, acknowledgeAlert, acknowledgeAllAlerts } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { AlertTriangle, Flame, ShieldAlert, Zap, CheckCircle2 } from "lucide-react";
+import { AlertTriangle, Flame, ShieldAlert, Zap, CheckCircle2, CheckCheck } from "lucide-react";
 import { toast } from "sonner";
 
 interface ActiveAlertsBannerProps {
   alerts: Alert[];
   onAlertAcknowledged: (id: number) => void;
+  onAllAcknowledged?: () => void;
 }
 
 export const ActiveAlertsBanner: React.FC<ActiveAlertsBannerProps> = ({
   alerts,
   onAlertAcknowledged,
+  onAllAcknowledged,
 }) => {
   const unackAlerts = alerts.filter((a) => !a.acknowledged);
 
@@ -24,6 +26,16 @@ export const ActiveAlertsBanner: React.FC<ActiveAlertsBannerProps> = ({
     await acknowledgeAlert(id);
     onAlertAcknowledged(id);
     toast.success(`Alert #${id} acknowledged`);
+  };
+
+  const handleAckAll = async () => {
+    await acknowledgeAllAlerts();
+    if (onAllAcknowledged) {
+      onAllAcknowledged();
+    } else {
+      unackAlerts.forEach((a) => onAlertAcknowledged(a.id));
+    }
+    toast.success(`All ${unackAlerts.length} active alerts acknowledged`);
   };
 
   const getAlertIcon = (type: string) => {
@@ -83,6 +95,17 @@ export const ActiveAlertsBanner: React.FC<ActiveAlertsBannerProps> = ({
         </div>
 
         <div className="flex items-center gap-2 w-full sm:w-auto justify-end">
+          {unackAlerts.length > 1 && (
+            <Button
+              size="sm"
+              variant="outline"
+              className="flex items-center gap-1.5 shadow-xs text-xs font-mono transition-transform duration-140 active:scale-[0.97]"
+              onClick={handleAckAll}
+            >
+              <CheckCheck className="h-3.5 w-3.5" />
+              <span>Acknowledge All ({unackAlerts.length})</span>
+            </Button>
+          )}
           <Button
             size="sm"
             variant={isCritical ? "destructive" : "default"}

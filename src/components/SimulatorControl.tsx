@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { type SimStatus, triggerAnomaly, updateSimConfig } from "@/lib/api";
+import { type SimStatus, triggerAnomaly, updateSimConfig, acknowledgeAllAlerts } from "@/lib/api";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -45,7 +45,8 @@ export const SimulatorControl: React.FC<SimulatorControlProps> = ({
 
   const handleRestoreNormal = async () => {
     await triggerAnomaly("NONE");
-    toast.success("Restored normal baseline conditions");
+    await acknowledgeAllAlerts();
+    toast.success("Restored normal baseline conditions and dismissed all active alerts");
     onConfigChange();
   };
 

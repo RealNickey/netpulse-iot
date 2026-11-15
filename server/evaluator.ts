@@ -41,26 +41,30 @@ export function evaluateTelemetry(telemetry: TelemetryPayload): EvaluationResult
   if (data.temperature !== undefined) {
     if (data.temperature >= 42) {
       worstStatus = "CRITICAL";
-      const alert = dbService.createAlert({
-        node_id: nodeId,
-        severity: "CRITICAL",
-        type: "THERMAL",
-        message: `CRITICAL Thermal Runaway: Rack temperature reached ${data.temperature.toFixed(1)}°C (Limit: 42°C)`,
-        value: data.temperature,
-        threshold: 42,
-      });
-      alerts.push(alert);
+      if (!dbService.hasActiveAlert(nodeId, "THERMAL")) {
+        const alert = dbService.createAlert({
+          node_id: nodeId,
+          severity: "CRITICAL",
+          type: "THERMAL",
+          message: `Critical Overheat: Rack temperature at ${data.temperature.toFixed(1)}°C exceeds 42°C threshold`,
+          value: data.temperature,
+          threshold: 42,
+        });
+        alerts.push(alert);
+      }
     } else if (data.temperature >= 35) {
       if (worstStatus !== "CRITICAL") worstStatus = "WARNING";
-      const alert = dbService.createAlert({
-        node_id: nodeId,
-        severity: "WARNING",
-        type: "THERMAL",
-        message: `High Thermal Warning: Rack temperature elevated at ${data.temperature.toFixed(1)}°C (Warning: 35°C)`,
-        value: data.temperature,
-        threshold: 35,
-      });
-      alerts.push(alert);
+      if (!dbService.hasActiveAlert(nodeId, "THERMAL")) {
+        const alert = dbService.createAlert({
+          node_id: nodeId,
+          severity: "WARNING",
+          type: "THERMAL",
+          message: `Thermal Warning: Rack temperature elevated at ${data.temperature.toFixed(1)}°C`,
+          value: data.temperature,
+          threshold: 35,
+        });
+        alerts.push(alert);
+      }
     }
   }
 
@@ -68,26 +72,30 @@ export function evaluateTelemetry(telemetry: TelemetryPayload): EvaluationResult
   if (data.humidity !== undefined) {
     if (data.humidity > 75) {
       if (worstStatus !== "CRITICAL") worstStatus = "WARNING";
-      const alert = dbService.createAlert({
-        node_id: nodeId,
-        severity: "WARNING",
-        type: "HUMIDITY",
-        message: `High Condensation Risk: Humidity is ${data.humidity.toFixed(1)}% (Safe Max: 75%)`,
-        value: data.humidity,
-        threshold: 75,
-      });
-      alerts.push(alert);
+      if (!dbService.hasActiveAlert(nodeId, "HUMIDITY")) {
+        const alert = dbService.createAlert({
+          node_id: nodeId,
+          severity: "WARNING",
+          type: "HUMIDITY",
+          message: `Condensation Risk: Humidity is ${data.humidity.toFixed(1)}% (Limit: 75%)`,
+          value: data.humidity,
+          threshold: 75,
+        });
+        alerts.push(alert);
+      }
     } else if (data.humidity < 20) {
       if (worstStatus !== "CRITICAL") worstStatus = "WARNING";
-      const alert = dbService.createAlert({
-        node_id: nodeId,
-        severity: "WARNING",
-        type: "HUMIDITY",
-        message: `Electrostatic Discharge (ESD) Risk: Humidity dropped to ${data.humidity.toFixed(1)}% (Safe Min: 20%)`,
-        value: data.humidity,
-        threshold: 20,
-      });
-      alerts.push(alert);
+      if (!dbService.hasActiveAlert(nodeId, "HUMIDITY")) {
+        const alert = dbService.createAlert({
+          node_id: nodeId,
+          severity: "WARNING",
+          type: "HUMIDITY",
+          message: `ESD Risk: Humidity dropped to ${data.humidity.toFixed(1)}% (Min: 20%)`,
+          value: data.humidity,
+          threshold: 20,
+        });
+        alerts.push(alert);
+      }
     }
   }
 
@@ -95,69 +103,79 @@ export function evaluateTelemetry(telemetry: TelemetryPayload): EvaluationResult
   if (data.powerWatts !== undefined) {
     if (data.powerWatts >= 3800) {
       worstStatus = "CRITICAL";
-      const alert = dbService.createAlert({
-        node_id: nodeId,
-        severity: "CRITICAL",
-        type: "POWER",
-        message: `PDU Main Overload Spike: Power draw at ${data.powerWatts.toFixed(0)}W exceeds breaker safety threshold (3800W)`,
-        value: data.powerWatts,
-        threshold: 3800,
-      });
-      alerts.push(alert);
+      if (!dbService.hasActiveAlert(nodeId, "POWER")) {
+        const alert = dbService.createAlert({
+          node_id: nodeId,
+          severity: "CRITICAL",
+          type: "POWER",
+          message: `Power Overload: Draw at ${data.powerWatts.toFixed(0)}W exceeds 3800W safety limit`,
+          value: data.powerWatts,
+          threshold: 3800,
+        });
+        alerts.push(alert);
+      }
     } else if (data.powerWatts >= 3200) {
       if (worstStatus !== "CRITICAL") worstStatus = "WARNING";
-      const alert = dbService.createAlert({
-        node_id: nodeId,
-        severity: "WARNING",
-        type: "POWER",
-        message: `High Power Demand: Power draw elevated at ${data.powerWatts.toFixed(0)}W (Threshold: 3200W)`,
-        value: data.powerWatts,
-        threshold: 3200,
-      });
-      alerts.push(alert);
+      if (!dbService.hasActiveAlert(nodeId, "POWER")) {
+        const alert = dbService.createAlert({
+          node_id: nodeId,
+          severity: "WARNING",
+          type: "POWER",
+          message: `High Power Demand: Draw at ${data.powerWatts.toFixed(0)}W`,
+          value: data.powerWatts,
+          threshold: 3200,
+        });
+        alerts.push(alert);
+      }
     }
   }
 
   // 4. Physical Intrusion & Security
   if (data.doorStatus === "UNAUTHORIZED_OPEN") {
     worstStatus = "CRITICAL";
-    const alert = dbService.createAlert({
-      node_id: nodeId,
-      severity: "CRITICAL",
-      type: "INTRUSION",
-      message: `PHYSICAL SECURITY BREACH: Server room access door forced or opened without authorized badge scan!`,
-      value: 1,
-      threshold: 0,
-    });
-    alerts.push(alert);
+    if (!dbService.hasActiveAlert(nodeId, "INTRUSION")) {
+      const alert = dbService.createAlert({
+        node_id: nodeId,
+        severity: "CRITICAL",
+        type: "INTRUSION",
+        message: `Security Breach: Vault door opened without authorization badge`,
+        value: 1,
+        threshold: 0,
+      });
+      alerts.push(alert);
+    }
   }
 
   // 5. Vibration / Seismic / Tamper
   if (data.vibration !== undefined && data.vibration > 7.0) {
     worstStatus = "CRITICAL";
-    const alert = dbService.createAlert({
-      node_id: nodeId,
-      severity: "CRITICAL",
-      type: "VIBRATION",
-      message: `Severe Structural Vibration: ${data.vibration.toFixed(2)}g detected on storage disk chassis!`,
-      value: data.vibration,
-      threshold: 7.0,
-    });
-    alerts.push(alert);
+    if (!dbService.hasActiveAlert(nodeId, "VIBRATION")) {
+      const alert = dbService.createAlert({
+        node_id: nodeId,
+        severity: "CRITICAL",
+        type: "VIBRATION",
+        message: `Chassis Vibration: ${data.vibration.toFixed(2)}g detected on storage rack`,
+        value: data.vibration,
+        threshold: 7.0,
+      });
+      alerts.push(alert);
+    }
   }
 
   // 6. Network Packet Loss
   if (data.packetLossPct !== undefined && data.packetLossPct > 20) {
     if (worstStatus !== "CRITICAL") worstStatus = "WARNING";
-    const alert = dbService.createAlert({
-      node_id: nodeId,
-      severity: "WARNING",
-      type: "NETWORK",
-      message: `Network Degradation: Switch port reporting ${data.packetLossPct.toFixed(1)}% packet drop rate`,
-      value: data.packetLossPct,
-      threshold: 20,
-    });
-    alerts.push(alert);
+    if (!dbService.hasActiveAlert(nodeId, "NETWORK")) {
+      const alert = dbService.createAlert({
+        node_id: nodeId,
+        severity: "WARNING",
+        type: "NETWORK",
+        message: `Switch Link Degradation: ${data.packetLossPct.toFixed(1)}% packet drop rate`,
+        value: data.packetLossPct,
+        threshold: 20,
+      });
+      alerts.push(alert);
+    }
   }
 
   return {
