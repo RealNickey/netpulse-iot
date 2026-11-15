@@ -236,7 +236,7 @@ export const NetworkMonitor: React.FC<NetworkMonitorProps> = ({
         <CardContent className="p-4 pt-2">
           <div className="h-64 w-full">
             {chartHistory.length > 2 ? (
-              <AreaChart data={chartHistory} config={chartConfig} bloom="aura">
+              <AreaChart data={chartHistory} config={chartConfig} bloom="aura" animate={false}>
                 <Grid />
                 <XAxis dataKey="time" />
                 <YAxis />
