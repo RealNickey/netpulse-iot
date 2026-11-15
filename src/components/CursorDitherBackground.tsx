@@ -18,24 +18,21 @@ export const CursorDitherBackground: React.FC = () => {
     const ctx = canvas.getContext("2d", { alpha: true });
     if (!ctx) return;
 
-    const CELL_SIZE = 5; // Size of each dither pixel cell
-    const RADIUS_PX = 200; // Glow radius in CSS pixels
-    const RADIUS_CELLS = Math.ceil(RADIUS_PX / CELL_SIZE);
+    const CELL = 4; // 4px dither cell size
+    const RADIUS_PX = 160; // Dither halo radius in px
+    const RADIUS_CELLS = Math.ceil(RADIUS_PX / CELL);
 
     let mouseX = -1000;
     let mouseY = -1000;
     let targetX = -1000;
     let targetY = -1000;
-    let isVisible = false;
-    let targetOpacity = 0;
     let currentOpacity = 0;
+    let targetOpacity = 0;
     let animId: number;
 
     const resize = () => {
-      canvas.width = Math.ceil(window.innerWidth / CELL_SIZE);
-      canvas.height = Math.ceil(window.innerHeight / CELL_SIZE);
-      canvas.style.width = `${window.innerWidth}px`;
-      canvas.style.height = `${window.innerHeight}px`;
+      canvas.width = window.innerWidth;
+      canvas.height = window.innerHeight;
     };
 
     resize();
@@ -44,79 +41,63 @@ export const CursorDitherBackground: React.FC = () => {
     const onPointerMove = (e: PointerEvent) => {
       targetX = e.clientX;
       targetY = e.clientY;
-      isVisible = true;
-      targetOpacity = 0.5;
+      targetOpacity = 1;
+      if (mouseX < 0) {
+        mouseX = e.clientX;
+        mouseY = e.clientY;
+      }
     };
 
     const onPointerLeave = () => {
-      isVisible = false;
       targetOpacity = 0;
     };
 
     window.addEventListener("pointermove", onPointerMove, { passive: true });
-    document.addEventListener("pointerleave", onPointerLeave);
-
-    let prevCellX = -9999;
-    let prevCellY = -9999;
+    document.addEventListener("mouseleave", onPointerLeave);
+    window.addEventListener("blur", onPointerLeave);
 
     const render = () => {
       animId = requestAnimationFrame(render);
 
-      // Smooth lerp toward mouse coordinates
-      mouseX += (targetX - mouseX) * 0.25;
-      mouseY += (targetY - mouseY) * 0.25;
+      // Smooth lerp toward cursor
+      mouseX += (targetX - mouseX) * 0.3;
+      mouseY += (targetY - mouseY) * 0.3;
       currentOpacity += (targetOpacity - currentOpacity) * 0.15;
 
-      if (currentOpacity < 0.01 && !isVisible) {
-        if (prevCellX !== -9999) {
-          ctx.clearRect(0, 0, canvas.width, canvas.height);
-          prevCellX = -9999;
-          prevCellY = -9999;
-        }
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+      if (currentOpacity < 0.02 || mouseX < -500) {
         return;
       }
 
-      const centerCellX = Math.round(mouseX / CELL_SIZE);
-      const centerCellY = Math.round(mouseY / CELL_SIZE);
+      const centerCellX = Math.floor(mouseX / CELL);
+      const centerCellY = Math.floor(mouseY / CELL);
 
-      // Clear previous bounding box + margin
-      const clearMinX = Math.max(0, Math.min(centerCellX, prevCellX) - RADIUS_CELLS - 2);
-      const clearMinY = Math.max(0, Math.min(centerCellY, prevCellY) - RADIUS_CELLS - 2);
-      const clearMaxX = Math.min(canvas.width, Math.max(centerCellX, prevCellX) + RADIUS_CELLS + 2);
-      const clearMaxY = Math.min(canvas.height, Math.max(centerCellY, prevCellY) + RADIUS_CELLS + 2);
+      const minCellX = Math.max(0, centerCellX - RADIUS_CELLS);
+      const maxCellX = Math.min(Math.floor(canvas.width / CELL), centerCellX + RADIUS_CELLS);
+      const minCellY = Math.max(0, centerCellY - RADIUS_CELLS);
+      const maxCellY = Math.min(Math.floor(canvas.height / CELL), centerCellY + RADIUS_CELLS);
 
-      ctx.clearRect(clearMinX, clearMinY, clearMaxX - clearMinX, clearMaxY - clearMinY);
-
-      prevCellX = centerCellX;
-      prevCellY = centerCellY;
-
-      // Draw dithered circular spotlight around cursor
-      const minX = Math.max(0, centerCellX - RADIUS_CELLS);
-      const maxX = Math.min(canvas.width, centerCellX + RADIUS_CELLS);
-      const minY = Math.max(0, centerCellY - RADIUS_CELLS);
-      const maxY = Math.min(canvas.height, centerCellY + RADIUS_CELLS);
-
-      const r2 = RADIUS_CELLS * RADIUS_CELLS;
-      ctx.fillStyle = `rgba(56, 189, 248, ${currentOpacity.toFixed(3)})`; // Cyan glow
-
-      for (let y = minY; y < maxY; y++) {
-        const dy = y - centerCellY;
+      for (let cy = minCellY; cy <= maxCellY; cy++) {
+        const dy = (cy - centerCellY) * CELL;
         const dy2 = dy * dy;
-        const bayerRow = BAYER4[y & 3];
+        const bayerRow = BAYER4[cy & 3];
 
-        for (let x = minX; x < maxX; x++) {
-          const dx = x - centerCellX;
+        for (let cx = minCellX; cx <= maxCellX; cx++) {
+          const dx = (cx - centerCellX) * CELL;
           const dist2 = dx * dx + dy2;
 
-          if (dist2 < r2) {
+          if (dist2 <= RADIUS_PX * RADIUS_PX) {
             const dist = Math.sqrt(dist2);
-            const normDist = dist / RADIUS_CELLS;
-            // Radial density curve with smooth outer falloff
-            const density = Math.pow(1 - normDist, 1.8) * 0.95;
-            const threshold = bayerRow[x & 3];
+            const normDist = dist / RADIUS_PX; // 0 to 1
+            const density = Math.pow(1 - normDist, 1.4);
+            const threshold = bayerRow[cx & 3];
 
             if (density > threshold) {
-              ctx.fillRect(x, y, 1, 1);
+              const alpha = Math.min(0.8, currentOpacity * (1 - normDist * 0.5) * 0.7);
+              // Electric cyan dither pixel
+              ctx.fillStyle = `rgba(56, 189, 248, ${alpha.toFixed(3)})`;
+              ctx.fillRect(cx * CELL, cy * CELL, CELL - 0.5, CELL - 0.5);
             }
           }
         }
@@ -129,16 +110,16 @@ export const CursorDitherBackground: React.FC = () => {
       cancelAnimationFrame(animId);
       window.removeEventListener("resize", resize);
       window.removeEventListener("pointermove", onPointerMove);
-      document.removeEventListener("pointerleave", onPointerLeave);
+      document.removeEventListener("mouseleave", onPointerLeave);
+      window.removeEventListener("blur", onPointerLeave);
     };
   }, []);
 
   return (
     <canvas
       ref={canvasRef}
-      className="pointer-events-none fixed inset-0 -z-10 h-full w-full opacity-60 mix-blend-screen"
+      className="pointer-events-none fixed inset-0 z-20 h-full w-full"
       aria-hidden="true"
-      style={{ imageRendering: "pixelated" }}
     />
   );
 };

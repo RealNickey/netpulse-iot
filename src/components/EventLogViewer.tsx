@@ -79,40 +79,65 @@ export const EventLogViewer: React.FC<EventLogViewerProps> = ({
   const [timelineHistory, setTimelineHistory] = useState<Array<{ time: string; events: number; alerts: number }>>(() => {
     const initial = [];
     const now = Date.now();
-    for (let i = 15; i >= 0; i--) {
-      const d = new Date(now - i * 3000);
+    for (let i = 17; i >= 0; i--) {
+      const d = new Date(now - i * 1500);
       initial.push({
         time: `${d.getMinutes().toString().padStart(2, "0")}:${d.getSeconds().toString().padStart(2, "0")}`,
-        events: Math.floor(Math.random() * 2 + 5),
+        events: Math.floor(Math.random() * 3 + 5),
         alerts: 0,
       });
     }
     return initial;
   });
 
-  const prevEventCountRef = useRef(events.length);
-  const prevAlertCountRef = useRef(alerts.length);
+  const latestEventIdRef = useRef<number | string>(0);
+  const alertsRef = useRef(alerts);
+  alertsRef.current = alerts;
+  const eventsRef = useRef(events);
+  eventsRef.current = events;
 
   useEffect(() => {
-    const d = new Date();
-    const timeLabel = `${d.getMinutes().toString().padStart(2, "0")}:${d.getSeconds().toString().padStart(2, "0")}`;
+    // Timer fires every 1.5s to continuously push new telemetry data and shift the graph to the left
+    const interval = setInterval(() => {
+      const d = new Date();
+      const timeLabel = `${d.getMinutes().toString().padStart(2, "0")}:${d.getSeconds().toString().padStart(2, "0")}`;
 
-    const deltaEvents = Math.max(1, events.length - prevEventCountRef.current);
-    const deltaAlerts = Math.max(0, alerts.length - prevAlertCountRef.current);
-    prevEventCountRef.current = events.length;
-    prevAlertCountRef.current = alerts.length;
+      // Count new events arrived since last tick
+      const currentEvents = eventsRef.current;
+      const latestId = currentEvents[0]?.id || 0;
+      let newEventCount = 0;
 
-    const newPoint = {
-      time: timeLabel,
-      events: deltaEvents > 0 && deltaEvents < 25 ? deltaEvents : Math.floor(Math.random() * 2 + 5),
-      alerts: deltaAlerts,
-    };
+      if (latestEventIdRef.current === 0) {
+        newEventCount = Math.floor(Math.random() * 2 + 5);
+      } else {
+        // Count how many events have an ID newer than the last tick
+        for (const ev of currentEvents) {
+          if (ev.id === latestEventIdRef.current) break;
+          newEventCount++;
+        }
+        if (newEventCount === 0) {
+          // If simulator is steady, typical telemetry is 5-7 packets per interval
+          newEventCount = Math.floor(Math.random() * 2 + 5);
+        }
+      }
+      latestEventIdRef.current = latestId;
 
-    setTimelineHistory((prev) => {
-      const updated = [...prev, newPoint];
-      return updated.length > 18 ? updated.slice(updated.length - 18) : updated;
-    });
-  }, [events.length, alerts.length]);
+      const unackAlertsCount = alertsRef.current.filter((a) => !a.acknowledged).length;
+
+      const newPoint = {
+        time: timeLabel,
+        events: Math.min(25, Math.max(1, newEventCount)),
+        alerts: unackAlertsCount,
+      };
+
+      setTimelineHistory((prev) => {
+        const next = [...prev, newPoint];
+        return next.slice(next.length - 18);
+      });
+    }, 1500);
+
+    return () => clearInterval(interval);
+  }, []);
 
   const getAlertSeverityBadge = (severity: string) => {
     switch (severity) {
